@@ -16,6 +16,9 @@
 #include "Menu/Jni.hpp"
 #include "Includes/Macros.h"
 
+// ========== TARGET LIBRARY ==========
+#define targetLibName OBFUSCATE("libil2cpp.so")
+
 // ========== TOGGLES ==========
 bool ticketToggle = true;
 bool hasBanTimeToggle = false;
@@ -91,7 +94,6 @@ void (*old_ReportViewCtor)(void* instance);
 void ReportViewCtor(void* instance) {
     old_ReportViewCtor(instance);
     if (easyReportToggle) {
-        // Set field at offset 0x71 to true
         bool* fieldPtr = (bool*)((uintptr_t)instance + 0x71);
         *fieldPtr = true;
     }
@@ -121,9 +123,6 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
 
     return (ret);
 }
-
-// Target main library name
-#define targetLibName OBFUSCATE("libil2cpp.so")
 
 // ========== HANDLE TOGGLES ==========
 void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featName, jint value, jlong Lvalue, jboolean boolean, jstring text) {
