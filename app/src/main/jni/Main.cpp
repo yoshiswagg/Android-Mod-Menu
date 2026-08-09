@@ -28,13 +28,6 @@ bool autoCompleteTasksToggle = false;
 bool easyReportToggle = false;
 float visionMultiplierValue = 1.0f;
 
-// ========== SPEEDHACK ==========
-typedef void (*SetTimeScale_t)(float value);
-void setGameSpeed(float speed) {
-    auto setTimeScale = (SetTimeScale_t)getAbsoluteAddress(targetLibName, OBFUSCATE("0x30E6FE4"));
-    setTimeScale(speed);
-}
-
 // ========== HOOK FUNCTIONS ==========
 void (*old_AddOption)(void* instance, int role, int quantity, int price, bool isSelected, void* action);
 void AddOption(void* instance, int role, int quantity, int price, bool isSelected, void* action) {
@@ -113,6 +106,14 @@ float get_VisionMultiplier(void* instance) {
     return old_get_VisionMultiplier(instance) * visionMultiplierValue;
 }
 
+// Speedhack - set timeScale
+void (*set_timeScale)(float speed);
+void setGameSpeed(float speed) {
+    if (set_timeScale) {
+        set_timeScale(speed);
+    }
+}
+
 // ========== MENU FEATURES ==========
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
@@ -126,7 +127,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("307_CollapseAdd_Toggle_Auto Complete Tasks"),
             OBFUSCATE("308_CollapseAdd_Toggle_Easy Report"),
             OBFUSCATE("309_CollapseAdd_SeekBar_Vision Multiplier_1_15"),
-            OBFUSCATE("200_CollapseAdd_SeekBar_Speedhack_1_10"),
+            OBFUSCATE("310_CollapseAdd_SeekBar_Speedhack_1_10"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -170,7 +171,7 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 309:
             visionMultiplierValue = (float)value;
             break;
-        case 200:
+        case 310:
             setGameSpeed(value);
             break;
         default:
@@ -185,6 +186,9 @@ void hack_thread() {
     }
 
 #if defined(__aarch64__)
+    // Get timeScale setter from UnityEngine.CoreModule
+    set_timeScale = (void (*)(float))getAbsoluteAddress(targetLibName, OBFUSCATE("0x30E6FE4"));
+
     HOOK(targetLibName, "0x2758374", AddOption, old_AddOption);
     HOOK(targetLibName, "0x2A90704", HasBanTime, old_HasBanTime);
     HOOK(targetLibName, "0x2FC7434", HasAssetsToDownload, old_HasAssetsToDownload);
