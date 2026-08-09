@@ -21,6 +21,7 @@
 
 // ========== GLOBALS ==========
 uintptr_t il2cppBase = 0;
+ElfScanner g_il2cppELF;
 
 // ========== TOGGLES ==========
 bool ticketToggle = true;
@@ -30,6 +31,13 @@ bool showRealNamesToggle = false;
 bool autoCompleteTasksToggle = false;
 bool easyReportToggle = false;
 float visionMultiplierValue = 1.0f;
+
+// ========== SPEEDHACK ==========
+typedef void (*SetTimeScale_t)(float value);
+void setGameSpeed(float speed) {
+    auto setTimeScale = (SetTimeScale_t)(il2cppBase + 0x30E6FE4);
+    setTimeScale(speed);
+}
 
 // ========== HOOK FUNCTIONS ==========
 void (*old_AddOption)(void* instance, int role, int quantity, int price, bool isSelected, void* action);
@@ -109,13 +117,6 @@ float get_VisionMultiplier(void* instance) {
     return old_get_VisionMultiplier(instance) * visionMultiplierValue;
 }
 
-// Speedhack - set timeScale using il2cppBase + offset
-typedef void (*SetTimeScale_t)(float value);
-void setGameSpeed(float speed) {
-    auto setTimeScale = (SetTimeScale_t)(il2cppBase + 0x30E6FE4);
-    setTimeScale(speed);
-}
-
 // ========== MENU FEATURES ==========
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
@@ -174,7 +175,7 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
             visionMultiplierValue = (float)value;
             break;
         case 200:
-            setGameSpeed(value);  // Removed (float) cast
+            setGameSpeed(value);
             break;
         default:
             break;
@@ -187,8 +188,10 @@ void hack_thread() {
         sleep(1);
     }
 
-    il2cppBase = getLibraryBase(targetLibName);
-    LOGI(OBFUSCATE("il2cppBase: 0x%lx"), il2cppBase);
+    // Get il2cpp base using ElfScanner
+    g_il2cppELF = ElfScanner::createWithPath(targetLibName);
+    LOGI(OBFUSCATE("%s has been loaded"), (const char *) targetLibName);
+    il2cppBase = g_il2cppELF.base();
 
 #if defined(__aarch64__)
     HOOK(targetLibName, "0x2758374", AddOption, old_AddOption);
