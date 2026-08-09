@@ -20,6 +20,9 @@
 bool ticketToggle = true;
 bool hasBanTimeToggle = false;
 bool remoteAssetsToggle = true;
+bool showRealNamesToggle = false;
+bool autoCompleteTasksToggle = false;
+bool easyReportToggle = false;
 
 // ========== HOOK FUNCTIONS ==========
 void (*old_AddOption)(void* instance, int role, int quantity, int price, bool isSelected, void* action);
@@ -62,6 +65,38 @@ bool IsVersionCached2nd(void* instance, void* cachedBundle) {
     return old_IsVersionCached2nd(instance, cachedBundle);
 }
 
+// Show real names - hook get_VisualName to return NetworkPlayerName
+void* (*old_get_VisualName)(void* instance);
+void* get_VisualName(void* instance) {
+    if (showRealNamesToggle) {
+        auto get_NetworkPlayerName = (void* (*)(void*))getAbsoluteAddress(targetLibName, OBFUSCATE("0x116B4C0"));
+        return get_NetworkPlayerName(instance);
+    }
+    return old_get_VisualName(instance);
+}
+
+// Auto Complete Tasks - hook StartMinigame to call OnMinigameCompleted
+void (*old_StartMinigame)(void* instance, int minigameType, int roomType);
+void StartMinigame(void* instance, int minigameType, int roomType) {
+    if (autoCompleteTasksToggle) {
+        auto OnMinigameCompleted = (void (*)(void*))getAbsoluteAddress(targetLibName, OBFUSCATE("0x32F0B70"));
+        OnMinigameCompleted(instance);
+        return;
+    }
+    old_StartMinigame(instance, minigameType, roomType);
+}
+
+// Easy Report - hook ReportView constructor to set hasEnoughCharactersOnMoreInfoToSendReport = true
+void (*old_ReportViewCtor)(void* instance);
+void ReportViewCtor(void* instance) {
+    old_ReportViewCtor(instance);
+    if (easyReportToggle) {
+        // Set field at offset 0x71 to true
+        bool* fieldPtr = (bool*)((uintptr_t)instance + 0x71);
+        *fieldPtr = true;
+    }
+}
+
 // ========== MENU FEATURES ==========
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
@@ -71,6 +106,9 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("303_CollapseAdd_True_Toggle_Role Tickets"),
             OBFUSCATE("304_CollapseAdd_Toggle_No Ban Time"),
             OBFUSCATE("305_CollapseAdd_True_Toggle_Block Assets Download"),
+            OBFUSCATE("306_CollapseAdd_Toggle_Show Real Names"),
+            OBFUSCATE("307_CollapseAdd_Toggle_Auto Complete Tasks"),
+            OBFUSCATE("308_CollapseAdd_Toggle_Easy Report"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -105,6 +143,15 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 305:
             remoteAssetsToggle = boolean;
             break;
+        case 306:
+            showRealNamesToggle = boolean;
+            break;
+        case 307:
+            autoCompleteTasksToggle = boolean;
+            break;
+        case 308:
+            easyReportToggle = boolean;
+            break;
         default:
             break;
     }
@@ -122,6 +169,9 @@ void hack_thread() {
     HOOK(targetLibName, "0x2FC7434", HasAssetsToDownload, old_HasAssetsToDownload);
     HOOK(targetLibName, "0x30E5E04", IsVersionCached, old_IsVersionCached);
     HOOK(targetLibName, "0x30E5D48", IsVersionCached2nd, old_IsVersionCached2nd);
+    HOOK(targetLibName, "0x1164F4C", get_VisualName, old_get_VisualName);
+    HOOK(targetLibName, "0x32F0AC0", StartMinigame, old_StartMinigame);
+    HOOK(targetLibName, "0x275A248", ReportViewCtor, old_ReportViewCtor);
 #endif
 
     LOGI(OBFUSCATE("Done"));
