@@ -19,10 +19,6 @@
 // ========== TARGET LIBRARY ==========
 #define targetLibName OBFUSCATE("libil2cpp.so")
 
-// ========== GLOBALS ==========
-uintptr_t il2cppBase = 0;
-ElfScanner g_il2cppELF;
-
 // ========== TOGGLES ==========
 bool ticketToggle = true;
 bool hasBanTimeToggle = false;
@@ -35,7 +31,7 @@ float visionMultiplierValue = 1.0f;
 // ========== SPEEDHACK ==========
 typedef void (*SetTimeScale_t)(float value);
 void setGameSpeed(float speed) {
-    auto setTimeScale = (SetTimeScale_t)(il2cppBase + 0x30E6FE4);
+    auto setTimeScale = (SetTimeScale_t)getAbsoluteAddress(targetLibName, OBFUSCATE("0x30E6FE4"));
     setTimeScale(speed);
 }
 
@@ -187,11 +183,6 @@ void hack_thread() {
     while (!isLibraryLoaded(targetLibName)) {
         sleep(1);
     }
-
-    // Get il2cpp base using ElfScanner
-    g_il2cppELF = ElfScanner::createWithPath(targetLibName);
-    LOGI(OBFUSCATE("%s has been loaded"), (const char *) targetLibName);
-    il2cppBase = g_il2cppELF.base();
 
 #if defined(__aarch64__)
     HOOK(targetLibName, "0x2758374", AddOption, old_AddOption);
