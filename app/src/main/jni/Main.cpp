@@ -26,6 +26,7 @@ bool remoteAssetsToggle = true;
 bool showRealNamesToggle = false;
 bool autoCompleteTasksToggle = false;
 bool easyReportToggle = false;
+float visionMultiplierValue = 1.0f;
 
 // ========== HOOK FUNCTIONS ==========
 void (*old_AddOption)(void* instance, int role, int quantity, int price, bool isSelected, void* action);
@@ -99,6 +100,20 @@ void ReportViewCtor(void* instance) {
     }
 }
 
+// Vision Multiplier - hook get_VisionMultiplier to multiply by custom value
+float (*old_get_VisionMultiplier)(void* instance);
+float get_VisionMultiplier(void* instance) {
+    return old_get_VisionMultiplier(instance) * visionMultiplierValue;
+}
+
+// Speedhack - set timeScale
+void (*set_timeScale)(float speed);
+void setGameSpeed(float speed) {
+    if (set_timeScale) {
+        set_timeScale(speed);
+    }
+}
+
 // ========== MENU FEATURES ==========
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
@@ -111,6 +126,8 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("306_CollapseAdd_Toggle_Show Real Names"),
             OBFUSCATE("307_CollapseAdd_Toggle_Auto Complete Tasks"),
             OBFUSCATE("308_CollapseAdd_Toggle_Easy Report"),
+            OBFUSCATE("309_CollapseAdd_SeekBar_Vision Multiplier_1_15"),
+            OBFUSCATE("310_CollapseAdd_SeekBar_Speedhack_1_10"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -151,6 +168,12 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 308:
             easyReportToggle = boolean;
             break;
+        case 309:
+            visionMultiplierValue = (float)value;
+            break;
+        case 310:
+            setGameSpeed((float)value);
+            break;
         default:
             break;
     }
@@ -163,6 +186,9 @@ void hack_thread() {
     }
 
 #if defined(__aarch64__)
+    // Get timeScale setter from UnityEngine.CoreModule
+    set_timeScale = (void (*)(float))getAbsoluteAddress(targetLibName, OBFUSCATE("0x306EF4"));
+
     HOOK(targetLibName, "0x2758374", AddOption, old_AddOption);
     HOOK(targetLibName, "0x2A90704", HasBanTime, old_HasBanTime);
     HOOK(targetLibName, "0x2FC7434", HasAssetsToDownload, old_HasAssetsToDownload);
@@ -171,6 +197,7 @@ void hack_thread() {
     HOOK(targetLibName, "0x1164F4C", get_VisualName, old_get_VisualName);
     HOOK(targetLibName, "0x32F0AC0", StartMinigame, old_StartMinigame);
     HOOK(targetLibName, "0x275A248", ReportViewCtor, old_ReportViewCtor);
+    HOOK(targetLibName, "0x1161AF0", get_VisionMultiplier, old_get_VisionMultiplier);
 #endif
 
     LOGI(OBFUSCATE("Done"));
