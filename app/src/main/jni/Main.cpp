@@ -26,14 +26,50 @@ bool remoteAssetsToggle = true;
 bool showRealNamesToggle = false;
 bool autoCompleteTasksToggle = false;
 bool easyReportToggle = false;
-bool meetingButtonPressed = false;
-bool bodyReportButtonPressed = false;
-bool openCameraButtonPressed = false;
-bool openVitalsButtonPressed = false;
 float visionMultiplierValue = 1.0f;
 
 // ========== FUNCTION POINTERS ==========
 void (*set_timeScale)(float speed);
+void (*CmdCallMeeting)(void* instance, int reported);
+void (*CmdOpenSecurityCameraConsole)(void* instance);
+void (*CmdOpenVitalsConsole)(void* instance);
+void* (*get_LocalPlayerController)();
+
+// ========== HELPER FUNCTIONS ==========
+void* GetPlayerController() {
+    if (get_LocalPlayerController) {
+        return get_LocalPlayerController();
+    }
+    return nullptr;
+}
+
+void CallMeeting() {
+    void* playerController = GetPlayerController();
+    if (playerController && CmdCallMeeting) {
+        CmdCallMeeting(playerController, 0);
+    }
+}
+
+void BodyReport() {
+    void* playerController = GetPlayerController();
+    if (playerController && CmdCallMeeting) {
+        CmdCallMeeting(playerController, 1);
+    }
+}
+
+void OpenCamera() {
+    void* playerController = GetPlayerController();
+    if (playerController && CmdOpenSecurityCameraConsole) {
+        CmdOpenSecurityCameraConsole(playerController);
+    }
+}
+
+void OpenVitals() {
+    void* playerController = GetPlayerController();
+    if (playerController && CmdOpenVitalsConsole) {
+        CmdOpenVitalsConsole(playerController);
+    }
+}
 
 // ========== HOOK FUNCTIONS ==========
 void (*old_AddOption)(void* instance, int role, int quantity, int price, bool isSelected, void* action);
@@ -120,44 +156,6 @@ void setGameSpeed(float speed) {
     }
 }
 
-// Call Meeting - hook CmdCallMeeting to force reported = 0
-void (*old_CmdCallMeeting)(void* instance, int reported);
-void CmdCallMeeting(void* instance, int reported) {
-    if (meetingButtonPressed) {
-        old_CmdCallMeeting(instance, 0);
-        meetingButtonPressed = false;
-        return;
-    }
-    if (bodyReportButtonPressed) {
-        old_CmdCallMeeting(instance, 1);
-        bodyReportButtonPressed = false;
-        return;
-    }
-    old_CmdCallMeeting(instance, reported);
-}
-
-// Open Security Camera - hook CmdOpenSecurityCameraConsole
-void (*old_CmdOpenSecurityCameraConsole)(void* instance);
-void CmdOpenSecurityCameraConsole(void* instance) {
-    if (openCameraButtonPressed) {
-        old_CmdOpenSecurityCameraConsole(instance);
-        openCameraButtonPressed = false;
-        return;
-    }
-    old_CmdOpenSecurityCameraConsole(instance);
-}
-
-// Open Vitals Console - hook CmdOpenVitalsConsole
-void (*old_CmdOpenVitalsConsole)(void* instance);
-void CmdOpenVitalsConsole(void* instance) {
-    if (openVitalsButtonPressed) {
-        old_CmdOpenVitalsConsole(instance);
-        openVitalsButtonPressed = false;
-        return;
-    }
-    old_CmdOpenVitalsConsole(instance);
-}
-
 // ========== MENU FEATURES ==========
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
@@ -223,16 +221,16 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
             setGameSpeed(value);
             break;
         case 311:
-            meetingButtonPressed = true;
+            CallMeeting();
             break;
         case 312:
-            bodyReportButtonPressed = true;
+            BodyReport();
             break;
         case 313:
-            openCameraButtonPressed = true;
+            OpenCamera();
             break;
         case 314:
-            openVitalsButtonPressed = true;
+            OpenVitals();
             break;
         default:
             break;
@@ -246,8 +244,12 @@ void hack_thread() {
     }
 
 #if defined(__aarch64__)
-    // Get timeScale setter from UnityEngine.CoreModule
+    // Get function addresses
     set_timeScale = (void (*)(float))getAbsoluteAddress(targetLibName, OBFUSCATE("0x30E6FE4"));
+    CmdCallMeeting = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1166CAC"));
+    CmdOpenSecurityCameraConsole = (void (*)(void*))getAbsoluteAddress(targetLibName, OBFUSCATE("0x116799C"));
+    CmdOpenVitalsConsole = (void (*)(void*))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1167E78"));
+    get_LocalPlayerController = (void* (*)())getAbsoluteAddress(targetLibName, OBFUSCATE("0xFC7668"));
 
     HOOK(targetLibName, "0x2758374", AddOption, old_AddOption);
     HOOK(targetLibName, "0x2A90704", HasBanTime, old_HasBanTime);
@@ -258,9 +260,6 @@ void hack_thread() {
     HOOK(targetLibName, "0x32F0AC0", StartMinigame, old_StartMinigame);
     HOOK(targetLibName, "0x275A248", ReportViewCtor, old_ReportViewCtor);
     HOOK(targetLibName, "0x1161AF0", get_VisionMultiplier, old_get_VisionMultiplier);
-    HOOK(targetLibName, "0x1166CAC", CmdCallMeeting, old_CmdCallMeeting);
-    HOOK(targetLibName, "0x116799C", CmdOpenSecurityCameraConsole, old_CmdOpenSecurityCameraConsole);
-    HOOK(targetLibName, "0x1167E78", CmdOpenVitalsConsole, old_CmdOpenVitalsConsole);
 #endif
 
     LOGI(OBFUSCATE("Done"));
