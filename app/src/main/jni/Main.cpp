@@ -26,7 +26,14 @@ bool remoteAssetsToggle = true;
 bool showRealNamesToggle = false;
 bool autoCompleteTasksToggle = false;
 bool easyReportToggle = false;
+bool meetingButtonPressed = false;
+bool bodyReportButtonPressed = false;
+bool openCameraButtonPressed = false;
+bool openVitalsButtonPressed = false;
 float visionMultiplierValue = 1.0f;
+
+// ========== FUNCTION POINTERS ==========
+void (*set_timeScale)(float speed);
 
 // ========== HOOK FUNCTIONS ==========
 void (*old_AddOption)(void* instance, int role, int quantity, int price, bool isSelected, void* action);
@@ -107,11 +114,48 @@ float get_VisionMultiplier(void* instance) {
 }
 
 // Speedhack - set timeScale
-void (*set_timeScale)(float speed);
 void setGameSpeed(float speed) {
     if (set_timeScale) {
         set_timeScale(speed);
     }
+}
+
+// Call Meeting - hook CmdCallMeeting to force reported = 0
+void (*old_CmdCallMeeting)(void* instance, int reported);
+void CmdCallMeeting(void* instance, int reported) {
+    if (meetingButtonPressed) {
+        old_CmdCallMeeting(instance, 0);
+        meetingButtonPressed = false;
+        return;
+    }
+    if (bodyReportButtonPressed) {
+        old_CmdCallMeeting(instance, 1);
+        bodyReportButtonPressed = false;
+        return;
+    }
+    old_CmdCallMeeting(instance, reported);
+}
+
+// Open Security Camera - hook CmdOpenSecurityCameraConsole
+void (*old_CmdOpenSecurityCameraConsole)(void* instance);
+void CmdOpenSecurityCameraConsole(void* instance) {
+    if (openCameraButtonPressed) {
+        old_CmdOpenSecurityCameraConsole(instance);
+        openCameraButtonPressed = false;
+        return;
+    }
+    old_CmdOpenSecurityCameraConsole(instance);
+}
+
+// Open Vitals Console - hook CmdOpenVitalsConsole
+void (*old_CmdOpenVitalsConsole)(void* instance);
+void CmdOpenVitalsConsole(void* instance) {
+    if (openVitalsButtonPressed) {
+        old_CmdOpenVitalsConsole(instance);
+        openVitalsButtonPressed = false;
+        return;
+    }
+    old_CmdOpenVitalsConsole(instance);
 }
 
 // ========== MENU FEATURES ==========
@@ -128,6 +172,10 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("308_CollapseAdd_Toggle_Easy Report"),
             OBFUSCATE("309_CollapseAdd_SeekBar_Vision Multiplier_1_15"),
             OBFUSCATE("310_CollapseAdd_SeekBar_Speedhack_1_10"),
+            OBFUSCATE("311_CollapseAdd_Button_Call Meeting"),
+            OBFUSCATE("312_CollapseAdd_Button_Body Report"),
+            OBFUSCATE("313_CollapseAdd_Button_Open Camera"),
+            OBFUSCATE("314_CollapseAdd_Button_Open Vitals"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -174,6 +222,18 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 310:
             setGameSpeed(value);
             break;
+        case 311:
+            meetingButtonPressed = true;
+            break;
+        case 312:
+            bodyReportButtonPressed = true;
+            break;
+        case 313:
+            openCameraButtonPressed = true;
+            break;
+        case 314:
+            openVitalsButtonPressed = true;
+            break;
         default:
             break;
     }
@@ -198,6 +258,9 @@ void hack_thread() {
     HOOK(targetLibName, "0x32F0AC0", StartMinigame, old_StartMinigame);
     HOOK(targetLibName, "0x275A248", ReportViewCtor, old_ReportViewCtor);
     HOOK(targetLibName, "0x1161AF0", get_VisionMultiplier, old_get_VisionMultiplier);
+    HOOK(targetLibName, "0x1166CAC", CmdCallMeeting, old_CmdCallMeeting);
+    HOOK(targetLibName, "0x116799C", CmdOpenSecurityCameraConsole, old_CmdOpenSecurityCameraConsole);
+    HOOK(targetLibName, "0x1167E78", CmdOpenVitalsConsole, old_CmdOpenVitalsConsole);
 #endif
 
     LOGI(OBFUSCATE("Done"));
