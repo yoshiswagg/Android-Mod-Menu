@@ -304,10 +304,7 @@ void hack_thread() {
     HOOK(targetLibName, "0x275A248", ReportViewCtor, old_ReportViewCtor);
     HOOK(targetLibName, "0x1161AF0", get_VisionMultiplier, old_get_VisionMultiplier);
 
-    // Set default FPS to 30 (game default)
-    if (set_targetFrameRate) {
-        set_targetFrameRate(30);
-    }
+    // Don't call SetFPS here - let the toggle handle it
 #endif
 
     LOGI(OBFUSCATE("Done"));
