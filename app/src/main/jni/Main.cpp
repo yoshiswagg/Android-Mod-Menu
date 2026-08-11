@@ -27,6 +27,10 @@ bool showRealNamesToggle = false;
 bool autoCompleteTasksToggle = false;
 bool easyReportToggle = false;
 bool fpsUnlockToggle = false;
+bool crashBellToggle = false;
+bool voteGhostToggle = false;
+bool seeGhostsToggle = false;
+bool alwaysLeaveToggle = false;
 bool hasChangedFrameRate = false;
 float visionMultiplierValue = 1.0f;
 
@@ -50,15 +54,23 @@ void* GetPlayerController() {
 void CallMeeting() {
     void* playerController = GetPlayerController();
     if (playerController && CmdCallMeeting) {
-        CmdCallMeeting(playerController, 0);
+        if (crashBellToggle) {
+            CmdCallMeeting(playerController, 69);
+        } else {
+            CmdCallMeeting(playerController, 0);
+        }
     }
 }
 
 void BodyReport() {
     void* playerController = GetPlayerController();
     if (playerController && CmdCallMeeting) {
-        int playerID = *(int*)((uintptr_t)playerController + 0x98);
-        CmdCallMeeting(playerController, playerID);
+        if (crashBellToggle) {
+            CmdCallMeeting(playerController, 69);
+        } else {
+            int playerID = *(int*)((uintptr_t)playerController + 0x98);
+            CmdCallMeeting(playerController, playerID);
+        }
     }
 }
 
@@ -103,6 +115,45 @@ void SetRoleKiller() {
     if (playerController && CmdUseTicket) {
         CmdUseTicket(playerController, 2);
     }
+}
+
+// ========== HOOK CmdCallMeeting ==========
+void (*old_CmdCallMeeting)(void* instance, int reported);
+void CmdCallMeeting_Hook(void* instance, int reported) {
+    if (crashBellToggle) {
+        old_CmdCallMeeting(instance, 69);
+    } else {
+        old_CmdCallMeeting(instance, reported);
+    }
+}
+
+// ========== HOOK VotePlayer IsDead ==========
+bool (*old_VotePlayer_IsDead)(void* instance);
+bool VotePlayer_IsDead(void* instance) {
+    if (voteGhostToggle) {
+        return false;
+    }
+    return old_VotePlayer_IsDead(instance);
+}
+
+// ========== HOOK See Ghosts (set IsDead always true) ==========
+void (*old_PlayerController_SetIsDead)(void* instance, bool value);
+void PlayerController_SetIsDead(void* instance, bool value) {
+    if (seeGhostsToggle) {
+        old_PlayerController_SetIsDead(instance, true);
+        return;
+    }
+    old_PlayerController_SetIsDead(instance, value);
+}
+
+// ========== HOOK Always Leave ==========
+void (*old_ToggleLeaveMatchButton)(void* instance, bool isActive);
+void ToggleLeaveMatchButton(void* instance, bool isActive) {
+    if (alwaysLeaveToggle) {
+        old_ToggleLeaveMatchButton(instance, true);
+        return;
+    }
+    old_ToggleLeaveMatchButton(instance, isActive);
 }
 
 // ========== HOOK FUNCTIONS ==========
@@ -211,6 +262,10 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("315_CollapseAdd_Toggle_Unlock FPS"),
             OBFUSCATE("316_CollapseAdd_Button_Set Role Guest"),
             OBFUSCATE("317_CollapseAdd_Button_Set Role Killer"),
+            OBFUSCATE("318_CollapseAdd_Toggle_Crash Bell"),
+            OBFUSCATE("319_CollapseAdd_Toggle_Vote Ghost"),
+            OBFUSCATE("320_CollapseAdd_Toggle_See Ghosts"),
+            OBFUSCATE("321_CollapseAdd_Toggle_Always Leave"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -278,6 +333,18 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 317:
             SetRoleKiller();
             break;
+        case 318:
+            crashBellToggle = boolean;
+            break;
+        case 319:
+            voteGhostToggle = boolean;
+            break;
+        case 320:
+            seeGhostsToggle = boolean;
+            break;
+        case 321:
+            alwaysLeaveToggle = boolean;
+            break;
         default:
             break;
     }
@@ -307,6 +374,10 @@ void hack_thread() {
     HOOK(targetLibName, "0x32F0AC0", StartMinigame, old_StartMinigame);
     HOOK(targetLibName, "0x275A248", ReportViewCtor, old_ReportViewCtor);
     HOOK(targetLibName, "0x1161AF0", get_VisionMultiplier, old_get_VisionMultiplier);
+    HOOK(targetLibName, "0x1166CAC", CmdCallMeeting_Hook, old_CmdCallMeeting);
+    HOOK(targetLibName, "0x346D7C4", VotePlayer_IsDead, old_VotePlayer_IsDead);
+    HOOK(targetLibName, "0x1161FE0", PlayerController_SetIsDead, old_PlayerController_SetIsDead);
+    HOOK(targetLibName, "0x23CC74C", ToggleLeaveMatchButton, old_ToggleLeaveMatchButton);
 
     LOGI(OBFUSCATE("Done"));
 }
