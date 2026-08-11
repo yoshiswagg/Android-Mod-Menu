@@ -26,6 +26,7 @@ bool remoteAssetsToggle = true;
 bool showRealNamesToggle = false;
 bool autoCompleteTasksToggle = false;
 bool easyReportToggle = false;
+bool fpsUnlockToggle = false;
 float visionMultiplierValue = 1.0f;
 
 // ========== FUNCTION POINTERS ==========
@@ -34,6 +35,8 @@ void (*CmdCallMeeting)(void* instance, int reported);
 void (*CmdOpenSecurityCameraConsole)(void* instance);
 void (*CmdOpenVitalsConsole)(void* instance);
 void* (*get_LocalPlayerController)();
+void (*set_targetFrameRate)(int fps);
+void (*CmdUseTicket)(void* instance, int roleTicket);
 
 // ========== HELPER FUNCTIONS ==========
 void* GetPlayerController() {
@@ -53,7 +56,8 @@ void CallMeeting() {
 void BodyReport() {
     void* playerController = GetPlayerController();
     if (playerController && CmdCallMeeting) {
-        CmdCallMeeting(playerController, 1);
+        int playerID = *(int*)((uintptr_t)playerController + 0x98);
+        CmdCallMeeting(playerController, playerID);
     }
 }
 
@@ -68,6 +72,26 @@ void OpenVitals() {
     void* playerController = GetPlayerController();
     if (playerController && CmdOpenVitalsConsole) {
         CmdOpenVitalsConsole(playerController);
+    }
+}
+
+void SetFPS(int fps) {
+    if (set_targetFrameRate) {
+        set_targetFrameRate(fps);
+    }
+}
+
+void SetRoleGuest() {
+    void* playerController = GetPlayerController();
+    if (playerController && CmdUseTicket) {
+        CmdUseTicket(playerController, 1);
+    }
+}
+
+void SetRoleKiller() {
+    void* playerController = GetPlayerController();
+    if (playerController && CmdUseTicket) {
+        CmdUseTicket(playerController, 2);
     }
 }
 
@@ -174,6 +198,9 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("312_CollapseAdd_Button_Body Report"),
             OBFUSCATE("313_CollapseAdd_Button_Open Camera"),
             OBFUSCATE("314_CollapseAdd_Button_Open Vitals"),
+            OBFUSCATE("315_CollapseAdd_Toggle_Unlock FPS"),
+            OBFUSCATE("316_CollapseAdd_Button_Set Role Guest"),
+            OBFUSCATE("317_CollapseAdd_Button_Set Role Killer"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -232,6 +259,20 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 314:
             OpenVitals();
             break;
+        case 315:
+            fpsUnlockToggle = boolean;
+            if (fpsUnlockToggle) {
+                SetFPS(120);
+            } else {
+                SetFPS(30);
+            }
+            break;
+        case 316:
+            SetRoleGuest();
+            break;
+        case 317:
+            SetRoleKiller();
+            break;
         default:
             break;
     }
@@ -250,6 +291,8 @@ void hack_thread() {
     CmdOpenSecurityCameraConsole = (void (*)(void*))getAbsoluteAddress(targetLibName, OBFUSCATE("0x116799C"));
     CmdOpenVitalsConsole = (void (*)(void*))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1167E78"));
     get_LocalPlayerController = (void* (*)())getAbsoluteAddress(targetLibName, OBFUSCATE("0xFC7668"));
+    set_targetFrameRate = (void (*)(int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x2C567A4"));
+    CmdUseTicket = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1165FAC"));
 
     HOOK(targetLibName, "0x2758374", AddOption, old_AddOption);
     HOOK(targetLibName, "0x2A90704", HasBanTime, old_HasBanTime);
@@ -260,6 +303,11 @@ void hack_thread() {
     HOOK(targetLibName, "0x32F0AC0", StartMinigame, old_StartMinigame);
     HOOK(targetLibName, "0x275A248", ReportViewCtor, old_ReportViewCtor);
     HOOK(targetLibName, "0x1161AF0", get_VisionMultiplier, old_get_VisionMultiplier);
+
+    // Set default FPS to 30 (game default)
+    if (set_targetFrameRate) {
+        set_targetFrameRate(30);
+    }
 #endif
 
     LOGI(OBFUSCATE("Done"));
