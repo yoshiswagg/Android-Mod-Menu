@@ -36,7 +36,6 @@ void (*CmdOpenSecurityCameraConsole)(void* instance);
 void (*CmdOpenVitalsConsole)(void* instance);
 void* (*get_LocalPlayerController)();
 void (*set_targetFrameRate)(int fps);
-void (*CmdUseTicket)(void* instance, int roleTicket);
 
 // ========== HELPER FUNCTIONS ==========
 void* GetPlayerController() {
@@ -83,15 +82,21 @@ void SetFPS(int fps) {
 
 void SetRoleGuest() {
     void* playerController = GetPlayerController();
-    if (playerController && CmdUseTicket) {
-        CmdUseTicket(playerController, 1);
+    if (playerController) {
+        auto CmdUseTicket = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1165FAC"));
+        if (CmdUseTicket) {
+            CmdUseTicket(playerController, 1);
+        }
     }
 }
 
 void SetRoleKiller() {
     void* playerController = GetPlayerController();
-    if (playerController && CmdUseTicket) {
-        CmdUseTicket(playerController, 2);
+    if (playerController) {
+        auto CmdUseTicket = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1165FAC"));
+        if (CmdUseTicket) {
+            CmdUseTicket(playerController, 2);
+        }
     }
 }
 
@@ -292,7 +297,6 @@ void hack_thread() {
     CmdOpenVitalsConsole = (void (*)(void*))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1167E78"));
     get_LocalPlayerController = (void* (*)())getAbsoluteAddress(targetLibName, OBFUSCATE("0xFC7668"));
     set_targetFrameRate = (void (*)(int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x2C567A4"));
-    CmdUseTicket = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1165FAC"));
 
     HOOK(targetLibName, "0x2758374", AddOption, old_AddOption);
     HOOK(targetLibName, "0x2A90704", HasBanTime, old_HasBanTime);
@@ -303,8 +307,6 @@ void hack_thread() {
     HOOK(targetLibName, "0x32F0AC0", StartMinigame, old_StartMinigame);
     HOOK(targetLibName, "0x275A248", ReportViewCtor, old_ReportViewCtor);
     HOOK(targetLibName, "0x1161AF0", get_VisionMultiplier, old_get_VisionMultiplier);
-
-    // Don't call SetFPS here - let the toggle handle it
 #endif
 
     LOGI(OBFUSCATE("Done"));
