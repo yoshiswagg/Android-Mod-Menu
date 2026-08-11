@@ -27,6 +27,7 @@ bool showRealNamesToggle = false;
 bool autoCompleteTasksToggle = false;
 bool easyReportToggle = false;
 bool fpsUnlockToggle = false;
+bool hasChangedFrameRate = false;
 float visionMultiplierValue = 1.0f;
 
 // ========== FUNCTION POINTERS ==========
@@ -36,6 +37,7 @@ void (*CmdOpenSecurityCameraConsole)(void* instance);
 void (*CmdOpenVitalsConsole)(void* instance);
 void* (*get_LocalPlayerController)();
 void (*set_targetFrameRate)(int fps);
+void (*CmdUseTicket)(void* instance, int roleTicket);
 
 // ========== HELPER FUNCTIONS ==========
 void* GetPlayerController() {
@@ -74,29 +76,32 @@ void OpenVitals() {
     }
 }
 
-void SetFPS(int fps) {
-    if (set_targetFrameRate) {
-        set_targetFrameRate(fps);
+void SetFPS(bool toggle) {
+    hasChangedFrameRate = hasChangedFrameRate || toggle;
+    if (!hasChangedFrameRate) {
+        return;
+    }
+    if (!set_targetFrameRate) {
+        return;
+    }
+    if (toggle) {
+        set_targetFrameRate(120);
+    } else {
+        set_targetFrameRate(30);
     }
 }
 
 void SetRoleGuest() {
     void* playerController = GetPlayerController();
-    if (playerController) {
-        auto CmdUseTicket = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1165FAC"));
-        if (CmdUseTicket) {
-            CmdUseTicket(playerController, 1);
-        }
+    if (playerController && CmdUseTicket) {
+        CmdUseTicket(playerController, 1);
     }
 }
 
 void SetRoleKiller() {
     void* playerController = GetPlayerController();
-    if (playerController) {
-        auto CmdUseTicket = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1165FAC"));
-        if (CmdUseTicket) {
-            CmdUseTicket(playerController, 2);
-        }
+    if (playerController && CmdUseTicket) {
+        CmdUseTicket(playerController, 2);
     }
 }
 
@@ -265,12 +270,7 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
             OpenVitals();
             break;
         case 315:
-            fpsUnlockToggle = boolean;
-            if (fpsUnlockToggle) {
-                SetFPS(120);
-            } else {
-                SetFPS(30);
-            }
+            SetFPS(boolean);
             break;
         case 316:
             SetRoleGuest();
@@ -289,7 +289,6 @@ void hack_thread() {
         sleep(1);
     }
 
-#if defined(__aarch64__)
     // Get function addresses
     set_timeScale = (void (*)(float))getAbsoluteAddress(targetLibName, OBFUSCATE("0x30E6FE4"));
     CmdCallMeeting = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1166CAC"));
@@ -297,6 +296,7 @@ void hack_thread() {
     CmdOpenVitalsConsole = (void (*)(void*))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1167E78"));
     get_LocalPlayerController = (void* (*)())getAbsoluteAddress(targetLibName, OBFUSCATE("0xFC7668"));
     set_targetFrameRate = (void (*)(int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x2C567A4"));
+    CmdUseTicket = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1165FAC"));
 
     HOOK(targetLibName, "0x2758374", AddOption, old_AddOption);
     HOOK(targetLibName, "0x2A90704", HasBanTime, old_HasBanTime);
@@ -307,7 +307,6 @@ void hack_thread() {
     HOOK(targetLibName, "0x32F0AC0", StartMinigame, old_StartMinigame);
     HOOK(targetLibName, "0x275A248", ReportViewCtor, old_ReportViewCtor);
     HOOK(targetLibName, "0x1161AF0", get_VisionMultiplier, old_get_VisionMultiplier);
-#endif
 
     LOGI(OBFUSCATE("Done"));
 }
