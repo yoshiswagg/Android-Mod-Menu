@@ -29,8 +29,8 @@ bool easyReportToggle = false;
 bool fpsUnlockToggle = false;
 bool crashBellToggle = false;
 bool voteGhostToggle = false;
-bool seeGhostsToggle = false;
 bool alwaysLeaveToggle = false;
+bool instantBellToggle = false;
 bool hasChangedFrameRate = false;
 float visionMultiplierValue = 1.0f;
 
@@ -42,6 +42,7 @@ void (*CmdOpenVitalsConsole)(void* instance);
 void* (*get_LocalPlayerController)();
 void (*set_targetFrameRate)(int fps);
 void (*CmdUseTicket)(void* instance, int roleTicket);
+void (*CmdVote)(void* instance, int v);
 
 // ========== HELPER FUNCTIONS ==========
 void* GetPlayerController() {
@@ -136,16 +137,6 @@ bool VotePlayer_IsDead(void* instance) {
     return old_VotePlayer_IsDead(instance);
 }
 
-// ========== HOOK See Ghosts (set IsDead always true) ==========
-void (*old_PlayerController_SetIsDead)(void* instance, bool value);
-void PlayerController_SetIsDead(void* instance, bool value) {
-    if (seeGhostsToggle) {
-        old_PlayerController_SetIsDead(instance, true);
-        return;
-    }
-    old_PlayerController_SetIsDead(instance, value);
-}
-
 // ========== HOOK Always Leave ==========
 void (*old_ToggleLeaveMatchButton)(void* instance, bool isActive);
 void ToggleLeaveMatchButton(void* instance, bool isActive) {
@@ -154,6 +145,19 @@ void ToggleLeaveMatchButton(void* instance, bool isActive) {
         return;
     }
     old_ToggleLeaveMatchButton(instance, isActive);
+}
+
+// ========== HOOK CmdVote (Instant Bell) ==========
+void (*old_CmdVote)(void* instance, int v);
+void CmdVote_Hook(void* instance, int v) {
+    if (instantBellToggle) {
+        // Send 100 votes with ID 0 first
+        for (int i = 0; i < 100; i++) {
+            old_CmdVote(instance, 0);
+        }
+    }
+    // Always send the original vote
+    old_CmdVote(instance, v);
 }
 
 // ========== HOOK FUNCTIONS ==========
@@ -264,8 +268,8 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("317_CollapseAdd_Button_Set Role Killer"),
             OBFUSCATE("318_CollapseAdd_Toggle_Crash Bell"),
             OBFUSCATE("319_CollapseAdd_Toggle_Vote Ghost"),
-            OBFUSCATE("320_CollapseAdd_Toggle_See Ghosts"),
             OBFUSCATE("321_CollapseAdd_Toggle_Always Leave"),
+            OBFUSCATE("322_CollapseAdd_Toggle_Instant Bell"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -339,11 +343,11 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 319:
             voteGhostToggle = boolean;
             break;
-        case 320:
-            seeGhostsToggle = boolean;
-            break;
         case 321:
             alwaysLeaveToggle = boolean;
+            break;
+        case 322:
+            instantBellToggle = boolean;
             break;
         default:
             break;
@@ -364,6 +368,7 @@ void hack_thread() {
     get_LocalPlayerController = (void* (*)())getAbsoluteAddress(targetLibName, OBFUSCATE("0xFC7668"));
     set_targetFrameRate = (void (*)(int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x2C567A4"));
     CmdUseTicket = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1165FAC"));
+    CmdVote = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1166DD8"));
 
     HOOK(targetLibName, "0x2758374", AddOption, old_AddOption);
     HOOK(targetLibName, "0x2A90704", HasBanTime, old_HasBanTime);
@@ -376,8 +381,8 @@ void hack_thread() {
     HOOK(targetLibName, "0x1161AF0", get_VisionMultiplier, old_get_VisionMultiplier);
     HOOK(targetLibName, "0x1166CAC", CmdCallMeeting_Hook, old_CmdCallMeeting);
     HOOK(targetLibName, "0x346D7C4", VotePlayer_IsDead, old_VotePlayer_IsDead);
-    HOOK(targetLibName, "0x1161FE0", PlayerController_SetIsDead, old_PlayerController_SetIsDead);
     HOOK(targetLibName, "0x23CC74C", ToggleLeaveMatchButton, old_ToggleLeaveMatchButton);
+    HOOK(targetLibName, "0x1166DD8", CmdVote_Hook, old_CmdVote);
 
     LOGI(OBFUSCATE("Done"));
 }
