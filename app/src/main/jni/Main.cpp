@@ -160,12 +160,22 @@ void CmdVote_Hook(void* instance, int v) {
 }
 
 // ========== HOOK ClientVersionComparison (Always Return Same) ==========
-int (*old_ClientVersionComparison)(void* instance);
-int ClientVersionComparison_Hook(void* instance) {
+int (*old_ClientVersionComparison_Get)(void* instance);
+int ClientVersionComparison_Get_Hook(void* instance) {
     if (versionBypassToggle) {
-        return 0; // Same
+        return 0; // ClientVersionComparison.Same
     }
-    return old_ClientVersionComparison(instance);
+    return old_ClientVersionComparison_Get(instance);
+}
+
+void (*old_ClientVersionComparison_Set)(void* instance, int value);
+void ClientVersionComparison_Set_Hook(void* instance, int value) {
+    if (versionBypassToggle) {
+        // Force set to Same (0) always
+        old_ClientVersionComparison_Set(instance, 0);
+        return;
+    }
+    old_ClientVersionComparison_Set(instance, value);
 }
 
 // ========== HOOK FUNCTIONS ==========
@@ -395,7 +405,9 @@ void hack_thread() {
     HOOK(targetLibName, "0x346D7C4", VotePlayer_IsDead, old_VotePlayer_IsDead);
     HOOK(targetLibName, "0x23CC74C", ToggleLeaveMatchButton, old_ToggleLeaveMatchButton);
     HOOK(targetLibName, "0x1166DD8", CmdVote_Hook, old_CmdVote);
-    HOOK(targetLibName, "0x17AA3FC", ClientVersionComparison_Hook, old_ClientVersionComparison);
+    // Version Bypass - hook both get and set
+    HOOK(targetLibName, "0x17AA3FC", ClientVersionComparison_Get_Hook, old_ClientVersionComparison_Get);
+    HOOK(targetLibName, "0x17AA404", ClientVersionComparison_Set_Hook, old_ClientVersionComparison_Set);
 
     LOGI(OBFUSCATE("Done"));
 }
