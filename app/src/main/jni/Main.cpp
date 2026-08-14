@@ -31,7 +31,7 @@ bool crashBellToggle = false;
 bool voteGhostToggle = false;
 bool alwaysLeaveToggle = false;
 bool instantBellToggle = false;
-bool versionBypassToggle = false;
+bool deadChatToggle = false;
 bool hasChangedFrameRate = false;
 float visionMultiplierValue = 1.0f;
 
@@ -44,6 +44,7 @@ void* (*get_LocalPlayerController)();
 void (*set_targetFrameRate)(int fps);
 void (*CmdUseTicket)(void* instance, int roleTicket);
 void (*CmdVote)(void* instance, int v);
+void (*CmdSendMessage)(void* instance, void* playerId, void* message);
 
 // ========== HELPER FUNCTIONS ==========
 void* GetPlayerController() {
@@ -159,23 +160,26 @@ void CmdVote_Hook(void* instance, int v) {
     old_CmdVote(instance, v);
 }
 
-// ========== HOOK ClientVersionComparison (Always Return Same) ==========
-int (*old_ClientVersionComparison_Get)(void* instance);
-int ClientVersionComparison_Get_Hook(void* instance) {
-    if (versionBypassToggle) {
-        return 0; // ClientVersionComparison.Same
-    }
-    return old_ClientVersionComparison_Get(instance);
-}
-
-void (*old_ClientVersionComparison_Set)(void* instance, int value);
-void ClientVersionComparison_Set_Hook(void* instance, int value) {
-    if (versionBypassToggle) {
-        // Force set to Same (0) always
-        old_ClientVersionComparison_Set(instance, 0);
+// ========== HOOK CmdSendMessage (Dead Chat) ==========
+void (*old_CmdSendMessage)(void* instance, void* playerId, void* message);
+void CmdSendMessage_Hook(void* instance, void* playerId, void* message) {
+    if (deadChatToggle) {
+        // Replace playerId with "69"
+        void* newPlayerId = Il2Cpp.string("69");
+        old_CmdSendMessage(instance, newPlayerId, message);
         return;
     }
-    old_ClientVersionComparison_Set(instance, value);
+    old_CmdSendMessage(instance, playerId, message);
+}
+
+// ========== HOOK set_IsDead (Dead Chat - keep alive) ==========
+void (*old_set_IsDead)(void* instance, bool value);
+void set_IsDead_Hook(void* instance, bool value) {
+    if (deadChatToggle) {
+        old_set_IsDead(instance, false);
+        return;
+    }
+    old_set_IsDead(instance, value);
 }
 
 // ========== HOOK FUNCTIONS ==========
@@ -288,7 +292,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("319_CollapseAdd_Toggle_Vote Ghost"),
             OBFUSCATE("321_CollapseAdd_Toggle_Always Leave"),
             OBFUSCATE("322_CollapseAdd_Toggle_Instant Bell"),
-            OBFUSCATE("323_CollapseAdd_Toggle_Version Bypass"),
+            OBFUSCATE("324_CollapseAdd_Toggle_Dead Chat"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -368,8 +372,8 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 322:
             instantBellToggle = boolean;
             break;
-        case 323:
-            versionBypassToggle = boolean;
+        case 324:
+            deadChatToggle = boolean;
             break;
         default:
             break;
@@ -391,6 +395,7 @@ void hack_thread() {
     set_targetFrameRate = (void (*)(int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x2C567A4"));
     CmdUseTicket = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1165FAC"));
     CmdVote = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1166DD8"));
+    CmdSendMessage = (void (*)(void*, void*, void*))getAbsoluteAddress(targetLibName, OBFUSCATE("0x24F2D40"));
 
     HOOK(targetLibName, "0x2758374", AddOption, old_AddOption);
     HOOK(targetLibName, "0x2A90704", HasBanTime, old_HasBanTime);
@@ -405,9 +410,8 @@ void hack_thread() {
     HOOK(targetLibName, "0x346D7C4", VotePlayer_IsDead, old_VotePlayer_IsDead);
     HOOK(targetLibName, "0x23CC74C", ToggleLeaveMatchButton, old_ToggleLeaveMatchButton);
     HOOK(targetLibName, "0x1166DD8", CmdVote_Hook, old_CmdVote);
-    // Version Bypass - hook both get and set
-    HOOK(targetLibName, "0x17AA3FC", ClientVersionComparison_Get_Hook, old_ClientVersionComparison_Get);
-    HOOK(targetLibName, "0x17AA404", ClientVersionComparison_Set_Hook, old_ClientVersionComparison_Set);
+    HOOK(targetLibName, "0x24F2D40", CmdSendMessage_Hook, old_CmdSendMessage);
+    HOOK(targetLibName, "0x1161FE0", set_IsDead_Hook, old_set_IsDead);
 
     LOGI(OBFUSCATE("Done"));
 }
