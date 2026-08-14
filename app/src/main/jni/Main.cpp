@@ -45,6 +45,7 @@ void (*set_targetFrameRate)(int fps);
 void (*CmdUseTicket)(void* instance, int roleTicket);
 void (*CmdVote)(void* instance, int v);
 void (*CmdSendMessage)(void* instance, void* playerId, void* message);
+void* (*il2cpp_string_new)(const char* str);
 
 // ========== HELPER FUNCTIONS ==========
 void* GetPlayerController() {
@@ -164,8 +165,8 @@ void CmdVote_Hook(void* instance, int v) {
 void (*old_CmdSendMessage)(void* instance, void* playerId, void* message);
 void CmdSendMessage_Hook(void* instance, void* playerId, void* message) {
     if (deadChatToggle) {
-        // Replace playerId with "69"
-        void* newPlayerId = Il2Cpp.string("69");
+        // Replace playerId with "69" using il2cpp_string_new
+        void* newPlayerId = il2cpp_string_new("69");
         old_CmdSendMessage(instance, newPlayerId, message);
         return;
     }
@@ -396,6 +397,9 @@ void hack_thread() {
     CmdUseTicket = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1165FAC"));
     CmdVote = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1166DD8"));
     CmdSendMessage = (void (*)(void*, void*, void*))getAbsoluteAddress(targetLibName, OBFUSCATE("0x24F2D40"));
+    
+    // Get il2cpp_string_new function
+    il2cpp_string_new = (void* (*)(const char*))getAbsoluteAddress(targetLibName, OBFUSCATE("il2cpp_string_new"));
 
     HOOK(targetLibName, "0x2758374", AddOption, old_AddOption);
     HOOK(targetLibName, "0x2A90704", HasBanTime, old_HasBanTime);
