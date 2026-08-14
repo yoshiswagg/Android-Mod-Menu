@@ -173,14 +173,13 @@ void CmdSendMessage_Hook(void* instance, void* playerId, void* message) {
     old_CmdSendMessage(instance, playerId, message);
 }
 
-// ========== HOOK set_IsDead (Dead Chat - keep alive) ==========
-void (*old_set_IsDead)(void* instance, bool value);
-void set_IsDead_Hook(void* instance, bool value) {
+// ========== HOOK BlockInput (Dead Chat - bypass input block) ==========
+void* (*old_BlockInput)(void* instance);
+void* BlockInput_Hook(void* instance) {
     if (deadChatToggle) {
-        old_set_IsDead(instance, false);
-        return;
+        return nullptr;
     }
-    old_set_IsDead(instance, value);
+    return old_BlockInput(instance);
 }
 
 // ========== HOOK FUNCTIONS ==========
@@ -415,7 +414,7 @@ void hack_thread() {
     HOOK(targetLibName, "0x23CC74C", ToggleLeaveMatchButton, old_ToggleLeaveMatchButton);
     HOOK(targetLibName, "0x1166DD8", CmdVote_Hook, old_CmdVote);
     HOOK(targetLibName, "0x24F2D40", CmdSendMessage_Hook, old_CmdSendMessage);
-    HOOK(targetLibName, "0x1161FE0", set_IsDead_Hook, old_set_IsDead);
+    HOOK(targetLibName, "0x2A8E830", BlockInput_Hook, old_BlockInput);
 
     LOGI(OBFUSCATE("Done"));
 }
