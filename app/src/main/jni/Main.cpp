@@ -31,6 +31,7 @@ bool crashBellToggle = false;
 bool voteGhostToggle = false;
 bool alwaysLeaveToggle = false;
 bool instantBellToggle = false;
+bool versionBypassToggle = false;
 bool hasChangedFrameRate = false;
 float visionMultiplierValue = 1.0f;
 
@@ -151,13 +152,20 @@ void ToggleLeaveMatchButton(void* instance, bool isActive) {
 void (*old_CmdVote)(void* instance, int v);
 void CmdVote_Hook(void* instance, int v) {
     if (instantBellToggle) {
-        // Send 100 votes with ID 0 first
         for (int i = 0; i < 100; i++) {
             old_CmdVote(instance, 0);
         }
     }
-    // Always send the original vote
     old_CmdVote(instance, v);
+}
+
+// ========== HOOK ClientVersionComparison (Always Return Same) ==========
+int (*old_ClientVersionComparison)(void* instance);
+int ClientVersionComparison_Hook(void* instance) {
+    if (versionBypassToggle) {
+        return 0; // Same
+    }
+    return old_ClientVersionComparison(instance);
 }
 
 // ========== HOOK FUNCTIONS ==========
@@ -270,6 +278,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("319_CollapseAdd_Toggle_Vote Ghost"),
             OBFUSCATE("321_CollapseAdd_Toggle_Always Leave"),
             OBFUSCATE("322_CollapseAdd_Toggle_Instant Bell"),
+            OBFUSCATE("323_CollapseAdd_Toggle_Version Bypass"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -349,6 +358,9 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 322:
             instantBellToggle = boolean;
             break;
+        case 323:
+            versionBypassToggle = boolean;
+            break;
         default:
             break;
     }
@@ -383,6 +395,7 @@ void hack_thread() {
     HOOK(targetLibName, "0x346D7C4", VotePlayer_IsDead, old_VotePlayer_IsDead);
     HOOK(targetLibName, "0x23CC74C", ToggleLeaveMatchButton, old_ToggleLeaveMatchButton);
     HOOK(targetLibName, "0x1166DD8", CmdVote_Hook, old_CmdVote);
+    HOOK(targetLibName, "0x17AA3FC", ClientVersionComparison_Hook, old_ClientVersionComparison);
 
     LOGI(OBFUSCATE("Done"));
 }
