@@ -32,6 +32,7 @@ bool voteGhostToggle = false;
 bool alwaysLeaveToggle = false;
 bool instantBellToggle = false;
 bool deadChatToggle = false;
+bool versionBypassToggle = false;
 bool hasChangedFrameRate = false;
 float visionMultiplierValue = 1.0f;
 
@@ -165,7 +166,6 @@ void CmdVote_Hook(void* instance, int v) {
 void (*old_CmdSendMessage)(void* instance, void* playerId, void* message);
 void CmdSendMessage_Hook(void* instance, void* playerId, void* message) {
     if (deadChatToggle) {
-        // Replace playerId with "69" using il2cpp_string_new
         void* newPlayerId = il2cpp_string_new("69");
         old_CmdSendMessage(instance, newPlayerId, message);
         return;
@@ -181,6 +181,15 @@ void SetInputInteractable_Hook(void* instance, bool interactable) {
         return;
     }
     old_SetInputInteractable(instance, interactable);
+}
+
+// ========== HOOK FriendVersionComparison (Version Bypass) ==========
+int (*old_FriendVersionComparison)(void* instance);
+int FriendVersionComparison_Hook(void* instance) {
+    if (versionBypassToggle) {
+        return 0; // Same
+    }
+    return old_FriendVersionComparison(instance);
 }
 
 // ========== HOOK FUNCTIONS ==========
@@ -293,6 +302,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("319_CollapseAdd_Toggle_Vote Ghost"),
             OBFUSCATE("321_CollapseAdd_Toggle_Always Leave"),
             OBFUSCATE("322_CollapseAdd_Toggle_Instant Bell"),
+            OBFUSCATE("323_CollapseAdd_Toggle_Version Bypass"),
             OBFUSCATE("324_CollapseAdd_Toggle_Dead Chat"),
     };
 
@@ -373,6 +383,9 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 322:
             instantBellToggle = boolean;
             break;
+        case 323:
+            versionBypassToggle = boolean;
+            break;
         case 324:
             deadChatToggle = boolean;
             break;
@@ -416,6 +429,7 @@ void hack_thread() {
     HOOK(targetLibName, "0x1166DD8", CmdVote_Hook, old_CmdVote);
     HOOK(targetLibName, "0x24F2D40", CmdSendMessage_Hook, old_CmdSendMessage);
     HOOK(targetLibName, "0x2A8ED28", SetInputInteractable_Hook, old_SetInputInteractable);
+    HOOK(targetLibName, "0x1B34A08", FriendVersionComparison_Hook, old_FriendVersionComparison);
 
     LOGI(OBFUSCATE("Done"));
 }
