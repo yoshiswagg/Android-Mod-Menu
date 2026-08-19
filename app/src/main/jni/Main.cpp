@@ -32,6 +32,7 @@ bool voteGhostToggle = false;
 bool alwaysLeaveToggle = false;
 bool instantBellToggle = false;
 bool deadChatToggle = false;
+bool versionBypassToggle = false;
 bool hasChangedFrameRate = false;
 float visionMultiplierValue = 1.0f;
 
@@ -165,7 +166,6 @@ void CmdVote_Hook(void* instance, int v) {
 void (*old_CmdSendMessage)(void* instance, void* playerId, void* message);
 void CmdSendMessage_Hook(void* instance, void* playerId, void* message) {
     if (deadChatToggle) {
-        // Replace playerId with "69" using il2cpp_string_new
         void* newPlayerId = il2cpp_string_new("69");
         old_CmdSendMessage(instance, newPlayerId, message);
         return;
@@ -173,7 +173,7 @@ void CmdSendMessage_Hook(void* instance, void* playerId, void* message) {
     old_CmdSendMessage(instance, playerId, message);
 }
 
-// ========== HOOK SetInputInteractable (Dead Chat - always true) ==========
+// ========== HOOK SetInputInteractable (Dead Chat) ==========
 void (*old_SetInputInteractable)(void* instance, bool interactable);
 void SetInputInteractable_Hook(void* instance, bool interactable) {
     if (deadChatToggle) {
@@ -181,6 +181,16 @@ void SetInputInteractable_Hook(void* instance, bool interactable) {
         return;
     }
     old_SetInputInteractable(instance, interactable);
+}
+
+// ========== HOOK Protos.FriendProfile .ctor (Version Bypass) ==========
+void (*old_FriendProfile_ctor)(void* instance);
+void FriendProfile_ctor_Hook(void* instance) {
+    old_FriendProfile_ctor(instance);
+    if (versionBypassToggle) {
+        int* fieldPtr = (int*)((uintptr_t)instance + 0x40);
+        *fieldPtr = 0; // ClientVersionComparison.Same
+    }
 }
 
 // ========== HOOK FUNCTIONS ==========
@@ -294,6 +304,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("321_CollapseAdd_Toggle_Always Leave"),
             OBFUSCATE("322_CollapseAdd_Toggle_Instant Bell"),
             OBFUSCATE("324_CollapseAdd_Toggle_Dead Chat"),
+            OBFUSCATE("323_CollapseAdd_Toggle_Version Bypass"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -376,6 +387,9 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 324:
             deadChatToggle = boolean;
             break;
+        case 323:
+            versionBypassToggle = boolean;
+            break;
         default:
             break;
     }
@@ -416,6 +430,7 @@ void hack_thread() {
     HOOK(targetLibName, "0x1166DD8", CmdVote_Hook, old_CmdVote);
     HOOK(targetLibName, "0x24F2D40", CmdSendMessage_Hook, old_CmdSendMessage);
     HOOK(targetLibName, "0x2A8ED28", SetInputInteractable_Hook, old_SetInputInteractable);
+    HOOK(targetLibName, "0x17A84D8", FriendProfile_ctor_Hook, old_FriendProfile_ctor);
 
     LOGI(OBFUSCATE("Done"));
 }
