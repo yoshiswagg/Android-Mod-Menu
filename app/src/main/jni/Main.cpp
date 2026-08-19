@@ -32,7 +32,7 @@ bool voteGhostToggle = false;
 bool alwaysLeaveToggle = false;
 bool instantBellToggle = false;
 bool deadChatToggle = false;
-bool versionBypassToggle = false;
+bool versionBypassToggle = true; // Changed to true
 bool hasChangedFrameRate = false;
 float visionMultiplierValue = 1.0f;
 
@@ -183,14 +183,15 @@ void SetInputInteractable_Hook(void* instance, bool interactable) {
     old_SetInputInteractable(instance, interactable);
 }
 
-// ========== HOOK Protos.FriendProfile .ctor (Version Bypass) ==========
-void (*old_FriendProfile_ctor)(void* instance);
-void FriendProfile_ctor_Hook(void* instance) {
-    old_FriendProfile_ctor(instance);
+// ========== HOOK PlayerFriend .ctor (Version Bypass) ==========
+void (*old_PlayerFriend_ctor)(void* instance, void* friendProfile);
+void PlayerFriend_ctor_Hook(void* instance, void* friendProfile) {
+    // Set field to 0 BEFORE calling original constructor
     if (versionBypassToggle) {
-        int* fieldPtr = (int*)((uintptr_t)instance + 0x40);
+        int* fieldPtr = (int*)((uintptr_t)friendProfile + 0x40);
         *fieldPtr = 0; // ClientVersionComparison.Same
     }
+    old_PlayerFriend_ctor(instance, friendProfile);
 }
 
 // ========== HOOK FUNCTIONS ==========
@@ -304,7 +305,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("321_CollapseAdd_Toggle_Always Leave"),
             OBFUSCATE("322_CollapseAdd_Toggle_Instant Bell"),
             OBFUSCATE("324_CollapseAdd_Toggle_Dead Chat"),
-            OBFUSCATE("323_CollapseAdd_Toggle_Version Bypass"),
+            OBFUSCATE("323_CollapseAdd_True_Toggle_Version Bypass"), // Changed to True_Toggle
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -430,7 +431,7 @@ void hack_thread() {
     HOOK(targetLibName, "0x1166DD8", CmdVote_Hook, old_CmdVote);
     HOOK(targetLibName, "0x24F2D40", CmdSendMessage_Hook, old_CmdSendMessage);
     HOOK(targetLibName, "0x2A8ED28", SetInputInteractable_Hook, old_SetInputInteractable);
-    HOOK(targetLibName, "0x17A84D8", FriendProfile_ctor_Hook, old_FriendProfile_ctor);
+    HOOK(targetLibName, "0x1B33B80", PlayerFriend_ctor_Hook, old_PlayerFriend_ctor);
 
     LOGI(OBFUSCATE("Done"));
 }
