@@ -32,7 +32,8 @@ bool voteGhostToggle = false;
 bool alwaysLeaveToggle = false;
 bool instantBellToggle = false;
 bool deadChatToggle = false;
-bool versionBypassToggle = true; // Changed to true
+bool versionBypassToggle = true;
+bool privateMuteToggle = false;
 bool hasChangedFrameRate = false;
 float visionMultiplierValue = 1.0f;
 
@@ -47,6 +48,7 @@ void (*CmdUseTicket)(void* instance, int roleTicket);
 void (*CmdVote)(void* instance, int v);
 void (*CmdSendMessage)(void* instance, void* playerId, void* message);
 void* (*il2cpp_string_new)(const char* str);
+void (*RequestSilencePlayerOnLobby)(void* instance, void* metagameId, int silenceReason);
 
 // ========== HELPER FUNCTIONS ==========
 void* GetPlayerController() {
@@ -186,12 +188,27 @@ void SetInputInteractable_Hook(void* instance, bool interactable) {
 // ========== HOOK PlayerFriend .ctor (Version Bypass) ==========
 void (*old_PlayerFriend_ctor)(void* instance, void* friendProfile);
 void PlayerFriend_ctor_Hook(void* instance, void* friendProfile) {
-    // Set field to 0 BEFORE calling original constructor
     if (versionBypassToggle) {
         int* fieldPtr = (int*)((uintptr_t)friendProfile + 0x40);
-        *fieldPtr = 0; // ClientVersionComparison.Same
+        *fieldPtr = 0;
     }
     old_PlayerFriend_ctor(instance, friendProfile);
+}
+
+// ========== HOOK ChattingViewOnOtherMuteClick (Private Mute) ==========
+void (*old_ChattingViewOnOtherMuteClick)(void* instance, int playerId);
+void ChattingViewOnOtherMuteClick_Hook(void* instance, int playerId) {
+    if (privateMuteToggle) {
+        void* localPlayer = get_LocalPlayerController();
+        if (localPlayer) {
+            void* metagameId = *(void**)((uintptr_t)localPlayer + 0x90);
+            if (metagameId) {
+                RequestSilencePlayerOnLobby(instance, metagameId, 0); // WrongAge
+                return;
+            }
+        }
+    }
+    old_ChattingViewOnOtherMuteClick(instance, playerId);
 }
 
 // ========== HOOK FUNCTIONS ==========
@@ -305,7 +322,8 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("321_CollapseAdd_Toggle_Always Leave"),
             OBFUSCATE("322_CollapseAdd_Toggle_Instant Bell"),
             OBFUSCATE("324_CollapseAdd_Toggle_Dead Chat"),
-            OBFUSCATE("323_CollapseAdd_True_Toggle_Version Bypass"), // Changed to True_Toggle
+            OBFUSCATE("323_CollapseAdd_True_Toggle_Version Bypass"),
+            OBFUSCATE("325_CollapseAdd_Toggle_Private Mute"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -391,6 +409,9 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 323:
             versionBypassToggle = boolean;
             break;
+        case 325:
+            privateMuteToggle = boolean;
+            break;
         default:
             break;
     }
@@ -412,6 +433,7 @@ void hack_thread() {
     CmdUseTicket = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1165FAC"));
     CmdVote = (void (*)(void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x1166DD8"));
     CmdSendMessage = (void (*)(void*, void*, void*))getAbsoluteAddress(targetLibName, OBFUSCATE("0x24F2D40"));
+    RequestSilencePlayerOnLobby = (void (*)(void*, void*, int))getAbsoluteAddress(targetLibName, OBFUSCATE("0x24F67A8"));
     
     // Get il2cpp_string_new function
     il2cpp_string_new = (void* (*)(const char*))getAbsoluteAddress(targetLibName, OBFUSCATE("il2cpp_string_new"));
@@ -432,6 +454,7 @@ void hack_thread() {
     HOOK(targetLibName, "0x24F2D40", CmdSendMessage_Hook, old_CmdSendMessage);
     HOOK(targetLibName, "0x2A8ED28", SetInputInteractable_Hook, old_SetInputInteractable);
     HOOK(targetLibName, "0x1B33B80", PlayerFriend_ctor_Hook, old_PlayerFriend_ctor);
+    HOOK(targetLibName, "0x2768ED8", ChattingViewOnOtherMuteClick_Hook, old_ChattingViewOnOtherMuteClick);
 
     LOGI(OBFUSCATE("Done"));
 }
